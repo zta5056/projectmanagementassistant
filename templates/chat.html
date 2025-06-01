@@ -57,6 +57,10 @@
                 e.preventDefault();
                 sendMessage();
             }
+        const textarea = document.getElementById('user-input');
+        textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
         });
         document.getElementById('send-btn').addEventListener('click', sendMessage);
     </script>
