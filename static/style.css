@@ -33,7 +33,7 @@ body {
 
 /* Main containers */
 .container, .chat-container {
-  max-width: 700px;
+  max-width: 900px;
   width: 100%;
   margin: 40px auto 0 auto;
   background: var(--white);
@@ -117,12 +117,13 @@ h3 {
   min-height: 180px;
   margin-bottom: 18px;
   padding: 8px 0;
+  max-width: 900px;
   width: 100%;
   align-items: center;
 }
 
 .chat-bubble {
-  max-width: 80%;
+  max-width: 95%;
   padding: 13px 18px;
   border-radius: 18px;
   font-size: 1.03rem;
