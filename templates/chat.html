@@ -53,14 +53,17 @@
         }
 
         document.getElementById('user-input').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+        }); // Added missing closing bracket
+    
+        // Move these outside the keydown listener
         const textarea = document.getElementById('user-input');
         textarea.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
         });
         document.getElementById('send-btn').addEventListener('click', sendMessage);
     </script>
