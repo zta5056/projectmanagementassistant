@@ -1,8 +1,11 @@
-import os
-from flask import Flask, render_template, request, jsonify, abort
+from flask import Flask, render_template, request, jsonify, session
 import openai
+import os
 
 app = Flask(__name__)
+
+# Configure OpenAI
+openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 PROMPTS = {
 "schedule_builder": "**Role**: Expert AI Scheduling Architect specializing in business productivity\n\n" +
@@ -168,13 +171,48 @@ welcome_messages = {
     "meeting_summarizer": "Hi! Please paste your meeting notes or transcript, and I’ll summarize the key points and action items."
 }
 
-openai.api_key = os.environ.get("OPENAI_API_KEY")  # Make sure your key is set
+def handle_conversation_flow(prompt_name, user_message):
+    # Initialize session if doesn't exist
+    if 'conversations' not in session:
+        session['conversations'] = {}
+    
+    # Get or initialize conversation history for this prompt
+    conversation = session['conversations'].get(prompt_name, [])
+    
+    # Add user message to history
+    conversation.append({"role": "user", "content": user_message})
+    
+    try:
+        # Get AI response
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": PROMPTS[prompt_name]},
+                *conversation
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        ai_reply = response.choices[0].message['content']
+        
+        # Add AI response to history
+        conversation.append({"role": "assistant", "content": ai_reply})
+        
+        # Update session
+        session['conversations'][prompt_name] = conversation
+        session.modified = True
+        
+        return jsonify({'reply': ai_reply})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 def home():
-    return render_template('index.html', prompts=PROMPTS)
+    return render_template('index.html')
 
-@app.route('/<prompt_name>', methods=['GET'])
+@app.route('/<prompt_name>')
 def prompt_page(prompt_name):
     if prompt_name not in PROMPTS:
         abort(404)
@@ -189,29 +227,12 @@ def prompt_page(prompt_name):
 def chat_api(prompt_name):
     if prompt_name not in PROMPTS:
         abort(404)
-    user_message = request.json.get('message')
+    
+    user_message = request.json.get('message', '').strip()
     if not user_message:
-        return jsonify({'error': 'No message provided'}), 400
-
-    messages = [
-        {"role": "system", "content": PROMPTS[prompt_name]},
-        {"role": "user", "content": user_message}
-    ]
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            max_tokens=500,
-            temperature=0.7
-        )
-        reply = response['choices'][0]['message']['content']
-        return jsonify({'reply': reply})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.errorhandler(404)
-def not_found(e):
-    return "Page not found or not allowed.", 404
+        return jsonify({'error': 'Empty message'}), 400
+    
+    return handle_conversation_flow(prompt_name, user_message)
 
 if __name__ == '__main__':
     app.run(debug=True)
