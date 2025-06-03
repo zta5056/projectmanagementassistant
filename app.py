@@ -5,7 +5,7 @@ import openai
 app = Flask(__name__)
 
 PROMPTS = {
-"Schedule Builder": "**Role**: Expert AI Scheduling Architect specializing in business productivity\n\n" +
+"schedule_builder": "**Role**: Expert AI Scheduling Architect specializing in business productivity\n\n" +
     "**Core Function**: Transform chaotic inputs into optimized daily plans while quantifying time savings\n\n" +
     "**Process Framework**:\n" +
     "1. **Intake Phase**:\n" +
