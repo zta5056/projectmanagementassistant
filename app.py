@@ -170,43 +170,91 @@ welcome_messages = {
     "risk_register_builder": "Hello! I can help you create a risk register. Please describe your project or business initiative.",
     "meeting_summarizer": "Hi! Please paste your meeting notes or transcript, and I’ll summarize the key points and action items."
 }
+# Define required fields and questions for each prompt type
+PROMPT_FIELDS = {
+    "schedule_builder": [
+        ("calendar_events", "Do you have any fixed calendar events or appointments today? If none, say 'none'."),
+        ("todo_list", "What is your full to-do list for today?"),
+        ("goals", "What are your top 1-3 goals for today?"),
+        ("work_style", "Do you have a preferred work style (e.g., Pomodoro, time blocking)? If not, say 'none'.")
+    ],
+    "risk_register_builder": [
+        ("project_description", "Please describe your project, operation, or business area."),
+        ("known_concerns", "List any known concerns, issues, or uncertainties (or say 'none')."),
+        ("objectives", "What are the key objectives, deliverables, or success criteria?"),
+        ("stakeholders", "Who are the key stakeholders or teams involved?")
+    ],
+    "meeting_summarizer": [
+        ("meeting_title", "What is the meeting title and purpose?"),
+        ("date_time", "What was the date, time, and duration?"),
+        ("attendees", "List the attendees and their roles."),
+        ("agenda", "What was the agenda or main topics discussed?"),
+        ("notes", "Paste any notes, transcripts, or recordings (or say 'none').")
+    ]
+}
 
-def handle_conversation_flow(prompt_name, user_message):
-    # Initialize session if doesn't exist
-    if 'conversations' not in session:
-        session['conversations'] = {}
-    
-    # Get or initialize conversation history for this prompt
-    conversation = session['conversations'].get(prompt_name, [])
-    
-    # Add user message to history
-    conversation.append({"role": "user", "content": user_message})
-    
-    try:
-        # Get AI response
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": PROMPTS[prompt_name]},
-                *conversation
-            ],
-            temperature=0.7,
-            max_tokens=500
+def get_next_missing_field(prompt_name, state):
+    """Find the next missing field and its question for the prompt."""
+    for field, question in PROMPT_FIELDS[prompt_name]:
+        if field not in state or not state[field]:
+            return field, question
+    return None, None
+
+def all_fields_collected(prompt_name, state):
+    """Check if all required fields are filled."""
+    return all(state.get(field) for field, _ in PROMPT_FIELDS[prompt_name])
+
+def handle_structured_conversation(prompt_name, user_message):
+    # Initialize per-session state
+    if 'structured_state' not in session:
+        session['structured_state'] = {}
+    state = session['structured_state'].get(prompt_name, {})
+
+    # Find the next missing field
+    field, question = get_next_missing_field(prompt_name, state)
+
+    # If this is the first message, start the flow
+    if not state and user_message.lower() in ['hi', 'hello', 'hey', 'start', '']:
+        session['structured_state'][prompt_name] = {}
+        return jsonify({'reply': welcome_messages[prompt_name]})
+
+    # If we're expecting a field, store the user's answer (even if it's "none")
+    if field:
+        state[field] = user_message.strip()
+        session['structured_state'][prompt_name] = state
+        # Find the next missing field after storing this one
+        next_field, next_question = get_next_missing_field(prompt_name, state)
+        if next_field:
+            return jsonify({'reply': next_question})
+
+    # If all fields are collected, call OpenAI and clear state
+    if all_fields_collected(prompt_name, state):
+        # Compose a summary input for the AI based on collected fields
+        summary_input = "\n".join(
+            f"{field.replace('_',' ').title()}: {state[field]}" for field, _ in PROMPT_FIELDS[prompt_name]
         )
-        
-        ai_reply = response.choices[0].message['content']
-        
-        # Add AI response to history
-        conversation.append({"role": "assistant", "content": ai_reply})
-        
-        # Update session
-        session['conversations'][prompt_name] = conversation
-        session.modified = True
-        
-        return jsonify({'reply': ai_reply})
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": PROMPTS[prompt_name]},
+                    {"role": "user", "content": summary_input}
+                ],
+                temperature=0.7,
+                max_tokens=700
+            )
+            ai_reply = response.choices[0].message['content']
+            # Clear state for this prompt to allow new sessions
+            session['structured_state'].pop(prompt_name, None)
+            session.modified = True
+            return jsonify({'reply': ai_reply})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # If something went wrong, restart
+    session['structured_state'].pop(prompt_name, None)
+    session.modified = True
+    return jsonify({'reply': welcome_messages[prompt_name]})
 
 @app.route('/')
 def home():
@@ -227,12 +275,10 @@ def prompt_page(prompt_name):
 def chat_api(prompt_name):
     if prompt_name not in PROMPTS:
         abort(404)
-    
     user_message = request.json.get('message', '').strip()
     if not user_message:
         return jsonify({'error': 'Empty message'}), 400
-    
-    return handle_conversation_flow(prompt_name, user_message)
+    return handle_structured_conversation(prompt_name, user_message)
 
 if __name__ == '__main__':
     app.run(debug=True)
