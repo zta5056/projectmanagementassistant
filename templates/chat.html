@@ -17,6 +17,7 @@
             <textarea id="user-input" placeholder="Type your message..." autocomplete="off" rows="3"></textarea>
             <button id="send-btn" type="button">Send</button>
         </div>
+        <button id="reset-btn" type="button">Start New Schedule</button>
     </div>
     <script>
         function addMessage(content, sender) {
@@ -66,6 +67,11 @@
             this.style.height = (this.scrollHeight) + 'px';
         });
         document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+        document.getElementById('reset-btn').addEventListener('click', async function() {
+            await fetch(`/reset/{{ prompt_name }}`, {method: 'POST'});
+            location.reload();  // Reloads the page, now with cleared session
+        });
     </script>
 </body>
 </html>
