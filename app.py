@@ -1,8 +1,12 @@
 import os
-from flask import Flask, render_template, request, jsonify, abort
 import openai
+from flask import Flask, render_template, request, jsonify, abort, session
+from flask_session import Session  # pip install Flask-Session
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY")
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 PROMPTS = {
 "schedule_builder": "Schedule Builder. Role: You are an AI-powered business assistant specializing in creating efficient, goal-oriented daily schedules for users. Instructions:" +
@@ -85,6 +89,14 @@ def chat_api(prompt_name):
         {"role": "system", "content": PROMPTS[prompt_name]},
         {"role": "user", "content": user_message}
     ]
+
+    history_key = f'chat_history_{prompt_name}'
+    if history_key not in session:
+        session[history_key] = [
+            {"role": "system", "content": PROMPTS[prompt_name]}
+        ]
+    chat_history = session[history_key]
+    chat_history.append({"role": "user", "content": user_message})
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
