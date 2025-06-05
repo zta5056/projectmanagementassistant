@@ -1,6 +1,6 @@
 import os
 import openai
-from flask import Flask, render_template, request, jsonify, abort, session
+from flask import Flask, render_template, request, jsonify, abort, session, redirect, url_for
 from flask_session import Session  # pip install Flask-Session
 
 app = Flask(__name__)
@@ -219,6 +219,11 @@ def chat_api(prompt_name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/reset/<prompt_name>', methods=['POST'])
+def reset_chat(prompt_name):
+    history_key = f'chat_history_{prompt_name}'
+    session.pop(history_key, None)  # Remove chat history for this prompt
+    return jsonify({'success': True})
 
 @app.errorhandler(404)
 def not_found(e):
