@@ -1,7 +1,13 @@
 import os
 import openai
-from flask import Flask, render_template, request, jsonify, abort, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, abort, session, redirect, url_for, make_response, Response
 from flask_session import Session  # pip install Flask-Session
+import csv
+import io
+from datetime import datetime, timedelta
+import pdfkit  # pip install pdfkit, and install wkhtmltopdf on your system
+from ics import Calendar, Event  # pip install ics
+import re
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
@@ -174,6 +180,19 @@ welcome_messages = {
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")  # Make sure your key is set
 
+def parse_markdown_table(markdown):
+    lines = markdown.strip().split('\n')
+    table_lines = [line for line in lines if '|' in line]
+    if len(table_lines) < 2:
+        return []
+    headers = [h.strip() for h in table_lines[0].split('|')[1:-1]]
+    rows = []
+    for line in table_lines[2:]:
+        cells = [c.strip() for c in line.split('|')[1:-1]]
+        if len(cells) == len(headers):
+            rows.append(dict(zip(headers, cells)))
+    return rows
+
 @app.route('/')
 def home():
     return render_template('index.html', prompts=PROMPTS)
@@ -219,15 +238,92 @@ def chat_api(prompt_name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+    markdown_tables = re.findall(r'(\|.+\|\n(\|[-:]+\|)+\n(?:\|.*\|\n?)+)', reply)
+    if markdown_tables:
+        session[f'{prompt_name}_last_table'] = markdown_tables[-1][0]
+    else:
+        session[f'{prompt_name}_last_table'] = None
+
 @app.route('/reset/<prompt_name>', methods=['POST'])
 def reset_chat(prompt_name):
     history_key = f'chat_history_{prompt_name}'
     session.pop(history_key, None)  # Remove chat history for this prompt
     return jsonify({'success': True})
 
+@app.route('/export/<prompt_name>/csv')
+def export_csv(prompt_name):
+    table_md = session.get(f'{prompt_name}_last_table')
+    if not table_md:
+        return "No table found to export.", 400
+    rows = parse_markdown_table(table_md)
+    if not rows:
+        return "Table parsing failed.", 400
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=rows[0].keys())
+    writer.writeheader()
+    writer.writerows(rows)
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.csv"
+    response.headers["Content-type"] = "text/csv"
+    return response
+
+@app.route('/export/<prompt_name>/pdf')
+def export_pdf(prompt_name):
+    table_md = session.get(f'{prompt_name}_last_table')
+    if not table_md:
+        return "No table found to export.", 400
+    # Simple HTML template for PDF
+    html = f"<h2>{prompt_name.replace('_', ' ').title()} Export</h2><pre>{table_md}</pre>"
+    pdf = pdfkit.from_string(html, False)
+    response = make_response(pdf)
+    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.pdf"
+    response.headers["Content-type"] = "application/pdf"
+    return response
+
+@app.route('/export/schedule_builder/ics')
+def export_ics():
+    table_md = session.get('schedule_builder_last_table')
+    if not table_md:
+        return "No schedule to export.", 400
+    rows = parse_markdown_table(table_md)
+    if not rows:
+        return "Table parsing failed.", 400
+
+    cal = Calendar()
+    # Example: parse time block like "9:00-10:30 AM"
+    for row in rows:
+        time_block = row.get('Time Block') or row.get('Time') or row.get('Timeblock')
+        task = row.get('Task') or row.get('Task Name')
+        if not time_block or not task:
+            continue
+        # Very basic time parsing (customize as needed!)
+        match = re.match(r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*([APMapm\.]*)', time_block)
+        if match:
+            start_str, end_str, ampm = match.groups()
+            today = datetime.today().date()
+            start_time = datetime.strptime(start_str + ampm, "%I:%M%p").time()
+            end_time = datetime.strptime(end_str + ampm, "%I:%M%p").time()
+            start_dt = datetime.combine(today, start_time)
+            end_dt = datetime.combine(today, end_time)
+        else:
+            # fallback: skip this row
+            continue
+        e = Event()
+        e.name = task
+        e.begin = start_dt
+        e.end = end_dt
+        e.description = row.get('Notes', '')
+        cal.events.add(e)
+    ics_content = str(cal)
+    return Response(ics_content, mimetype="text/calendar",
+                    headers={"Content-Disposition": "attachment; filename=schedule.ics"})
+
 @app.errorhandler(404)
 def not_found(e):
     return "Page not found or not allowed.", 404
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
