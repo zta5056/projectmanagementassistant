@@ -18,6 +18,13 @@
             <button id="send-btn" type="button">Send</button>
         </div>
         <button id="reset-btn" type="button">Start New Schedule</button>
+        <div class="export-buttons">
+            <a href="/export/{{ prompt_name }}/csv" class="btn" target="_blank">Export as CSV</a>
+            <a href="/export/{{ prompt_name }}/pdf" class="btn" target="_blank">Export as PDF</a>
+            {% if prompt_name == "schedule_builder" %}
+                <a href="/export/schedule_builder/ics" class="btn" target="_blank">Export as ICS</a>
+            {% endif %}
+        </div>
     </div>
     <script>
         function addMessage(content, sender) {
