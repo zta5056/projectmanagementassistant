@@ -12,6 +12,11 @@ import re
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_FILE_DIR'] = './flask_session_dir'  # Make sure this directory exists and is writable
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
 Session(app)
 
 PROMPTS = {
