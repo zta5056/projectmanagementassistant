@@ -65,7 +65,8 @@ PROMPTS = {
     "**Output Standards**:\\n" +
     "- Markdown tables with mobile-responsive design\\n" +
     "- Export options: .ics, PDF, Slack integration\\n" +
-    "- Version control for schedule iterations\""
+    "- Version control for schedule iterations\"" +
+    "MAKE SURE TO output a markdown table when generating schedules, risk registers, or meeting summaries"
 ,
 
 "risk_register_builder": "**Role**: AI Risk Management Strategist | ISO 31000 Certified\n\n" +
@@ -118,7 +119,8 @@ PROMPTS = {
     "**Compliance**:\n" +
     "- Aligns with NIST SP 800-30\\n" +
     "- Supports SOC 2, ISO 27001 controls\\n" +
-    "- Tracks COSO ERM components"
+    "- Tracks COSO ERM components" +
+    "MAKE SURE TO output a markdown table when generating schedules, risk registers, or meeting summaries"
 ,
 
 "meeting_summarizer": "**Role**: You are an AI-powered professional meeting summarizer, skilled at capturing key points, decisions, and action items from meetings in a clear, actionable, and concise format.\n\n" +
@@ -162,7 +164,8 @@ PROMPTS = {
     "|---------------------------|--------------|-------------|-----------|------------------------|\n" +
     "| Share project roadmap     | Alex (PM)    | 2025-06-15  | Open      | Email to all attendees |\n" +
     "| Schedule next meeting     | Jamie (Admin)| 2025-06-20  | In Progress| Confirm availability   |\n" +
-    "| Review Q2 budget          | Priya (CFO)  | 2025-06-18  | Open      | Provide feedback by 6/18|\n"
+    "| Review Q2 budget          | Priya (CFO)  | 2025-06-18  | Open      | Provide feedback by 6/18|\n" +
+    "MAKE SURE TO output a markdown table when generating schedules, risk registers, or meeting summaries"
 
 }
 
@@ -235,7 +238,7 @@ def chat_api(prompt_name):
         chat_history.append({"role": "assistant", "content": reply})
         session[history_key] = chat_history  # Save updated history
 
-        # --- Move this block BEFORE the return! ---
+        # --- Move this block UP, before the return! ---
         markdown_tables = re.findall(r'(\|.+\|\n(\|[-:]+\|)+\n(?:\|.*\|\n?)+)', reply)
         if markdown_tables:
             session[f'{prompt_name}_last_table'] = markdown_tables[-1][0]
