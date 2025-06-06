@@ -3,11 +3,5 @@ openai==0.28
 python-dotenv>=1.0
 gunicorn>=20.0
 flask_session>= 0.1
-os
-csv
-io
-datetime
 pdfkit
-wkhtmltopdf
 ics
-re
