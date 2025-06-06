@@ -227,22 +227,25 @@ def chat_api(prompt_name):
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=chat_history,  # <-- Use the full history
+            messages=chat_history,
             max_tokens=500,
             temperature=0.7
         )
         reply = response['choices'][0]['message']['content']
         chat_history.append({"role": "assistant", "content": reply})
         session[history_key] = chat_history  # Save updated history
+
+        # --- Move this block BEFORE the return! ---
+        markdown_tables = re.findall(r'(\|.+\|\n(\|[-:]+\|)+\n(?:\|.*\|\n?)+)', reply)
+        if markdown_tables:
+            session[f'{prompt_name}_last_table'] = markdown_tables[-1][0]
+        else:
+            session[f'{prompt_name}_last_table'] = None
+        session.modified = True  # Ensure session is saved
+
         return jsonify({'reply': reply})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-    markdown_tables = re.findall(r'(\|.+\|\n(\|[-:]+\|)+\n(?:\|.*\|\n?)+)', reply)
-    if markdown_tables:
-        session[f'{prompt_name}_last_table'] = markdown_tables[-1][0]
-    else:
-        session[f'{prompt_name}_last_table'] = None
 
 @app.route('/reset/<prompt_name>', methods=['POST'])
 def reset_chat(prompt_name):
