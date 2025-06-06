@@ -3,3 +3,11 @@ openai==0.28
 python-dotenv>=1.0
 gunicorn>=20.0
 flask_session>= 0.1
+os>=0.1
+csv>=0.1
+io>=0.1
+datetime>=0.1
+pdfkit>=0.1
+wkhtmltopdf>=0.1
+ics>=0.1
+re>=0.1
