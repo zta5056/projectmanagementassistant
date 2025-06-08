@@ -79,6 +79,19 @@
             await fetch(`/reset/{{ prompt_name }}`, {method: 'POST'});
             location.reload();  // Reloads the page, now with cleared session
         });
+
+        document.querySelectorAll('.export-buttons a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Add loading state
+                this.style.opacity = '0.6';
+                this.textContent = 'Exporting...';
+                
+                setTimeout(() => {
+                    this.style.opacity = '1';
+                    this.textContent = this.textContent.replace('Exporting...', this.getAttribute('data-original-text') || 'Export');
+                }, 2000);
+            });
+        });
     </script>
 </body>
 </html>
