@@ -5,9 +5,9 @@ from flask_session import Session  # pip install Flask-Session
 import csv
 import io
 from datetime import datetime, timedelta
-import pdfkit  # pip install pdfkit, and install wkhtmltopdf on your system
 from ics import Calendar, Event  # pip install ics
 import re
+from weasyprint import HTML, CSS
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
@@ -291,52 +291,12 @@ def export_csv(prompt_name):
     return response
 
 @app.route('/export/<prompt_name>/pdf')
-def export_pdf(prompt_name):
-    table_md = session.get(f'{prompt_name}_last_table')
-    if not table_md:
-        return "No table found to export.", 400
-    
-    rows = parse_markdown_table(table_md)
-    if not rows:
-        return "Table parsing failed.", 400
-    
-    # Generate HTML table instead of PDF
-    html_table = "<table border='1' style='border-collapse: collapse; width: 100%;'>"
-    html_table += "<tr>"
-    for header in rows[0].keys():
-        html_table += f"<th style='padding: 8px; background-color: #f2f2f2;'>{header}</th>"
-    html_table += "</tr>"
-    
-    for row in rows:
-        html_table += "<tr>"
-        for cell in row.values():
-            html_table += f"<td style='padding: 8px;'>{cell}</td>"
-        html_table += "</tr>"
-    html_table += "</table>"
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>{prompt_name.replace('_', ' ').title()} Export</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            h1 {{ color: #333; }}
-            table {{ border-collapse: collapse; width: 100%; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background-color: #f2f2f2; }}
-        </style>
-    </head>
-    <body>
-        <h1>{prompt_name.replace('_', ' ').title()} Export</h1>
-        {html_table}
-    </body>
-    </html>
-    """
-    
-    response = make_response(html_content)
-    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.html"
-    response.headers["Content-type"] = "text/html"
+def export_weasyprint_pdf(prompt_name):
+    # Generate HTML content (same as above)
+    pdf = HTML(string=html_content).write_pdf()
+    response = make_response(pdf)
+    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.pdf"
+    response.headers["Content-type"] = "application/pdf"
     return response
 
 @app.route('/export/schedule_builder/ics')
