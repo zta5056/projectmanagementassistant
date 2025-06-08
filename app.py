@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 # Remove: import pdfkit
 from ics import Calendar, Event
 import re
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
@@ -291,14 +292,84 @@ def export_csv(prompt_name):
     return response
 
 @app.route('/export/<prompt_name>/pdf')
-def export_weasyprint_pdf(prompt_name):
-    # Generate HTML content (same as above)
-    pdf = HTML(string=html_content).write_pdf()
-    response = make_response(pdf)
-    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.pdf"
-    response.headers["Content-type"] = "application/pdf"
+def export_html_as_pdf(prompt_name):
+    table_md = session.get(f'{prompt_name}_last_table')
+    if not table_md:
+        return "No table found to export.", 400
+    
+    rows = parse_markdown_table(table_md)
+    if not rows:
+        return "Table parsing failed.", 400
+    
+    # Generate complete HTML content
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{prompt_name.replace('_', ' ').title()} Export</title>
+        <style>
+            body {{ 
+                font-family: 'Segoe UI', Arial, sans-serif; 
+                margin: 20px; 
+                background: white;
+            }}
+            h1 {{ 
+                color: #2155CD; 
+                border-bottom: 2px solid #2155CD;
+                padding-bottom: 10px;
+            }}
+            table {{ 
+                border-collapse: collapse; 
+                width: 100%; 
+                margin-top: 20px;
+            }}
+            th, td {{ 
+                border: 1px solid #ddd; 
+                padding: 12px 8px; 
+                text-align: left; 
+            }}
+            th {{ 
+                background-color: #2155CD; 
+                color: white;
+                font-weight: 600;
+            }}
+            tr:nth-child(even) {{ background-color: #f8f9fa; }}
+        </style>
+    </head>
+    <body>
+        <h1>{prompt_name.replace('_', ' ').title()} Export</h1>
+        <table>
+            <thead>
+                <tr>
+    """
+    
+    # Add headers
+    for header in rows[0].keys():
+        html_content += f"<th>{header}</th>"
+    html_content += "</tr></thead><tbody>"
+    
+    # Add data rows
+    for row in rows:
+        html_content += "<tr>"
+        for cell in row.values():
+            html_content += f"<td>{cell}</td>"
+        html_content += "</tr>"
+    
+    html_content += f"""
+            </tbody>
+        </table>
+        <div style="margin-top: 20px; font-size: 0.9em; color: #666;">
+            <p>Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    response = make_response(html_content)
+    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.html"
+    response.headers["Content-type"] = "text/html"
     return response
-
+    
 @app.route('/export/schedule_builder/ics')
 def export_ics():
     table_md = session.get('schedule_builder_last_table')
