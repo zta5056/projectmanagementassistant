@@ -189,16 +189,27 @@ welcome_messages = {
 openai.api_key = os.environ.get("OPENAI_API_KEY")  # Make sure your key is set
 
 def parse_markdown_table(markdown):
-    lines = markdown.strip().split('\n')
-    table_lines = [line for line in lines if '|' in line]
+    if not markdown:
+        return []
+    
+    lines = [line.strip() for line in markdown.strip().split('\n') if line.strip()]
+    table_lines = [line for line in lines if '|' in line and line.count('|') >= 2]
+    
     if len(table_lines) < 2:
         return []
-    headers = [h.strip() for h in table_lines[0].split('|')[1:-1]]
+    
+    # Parse headers
+    headers = [h.strip() for h in table_lines[0].split('|')[1:-1] if h.strip()]
+    if not headers:
+        return []
+    
+    # Skip separator line and parse data rows
     rows = []
-    for line in table_lines[2:]:
+    for line in table_lines[2:]:  # Skip header and separator
         cells = [c.strip() for c in line.split('|')[1:-1]]
         if len(cells) == len(headers):
             rows.append(dict(zip(headers, cells)))
+    
     return rows
 
 @app.route('/')
@@ -241,20 +252,20 @@ def chat_api(prompt_name):
         )
         reply = response['choices'][0]['message']['content']
         chat_history.append({"role": "assistant", "content": reply})
-        session[history_key] = chat_history  # Save updated history
+        session[history_key] = chat_history
 
-        # --- Move this block UP, before the return! ---
-        markdown_tables = re.findall(r'(\|.+\|\n(\|[-:]+\|)+\n(?:\|.*\|\n?)+)', reply)
+        # FIXED: Move table detection BEFORE return
+        markdown_tables = re.findall(r'(\|.+\|\n(?:\|[-:]+\|)+\n(?:\|.*\|\n?)*)', reply)
         if markdown_tables:
-            session[f'{prompt_name}_last_table'] = markdown_tables[-1][0]
+            session[f'{prompt_name}_last_table'] = markdown_tables[-1]
         else:
             session[f'{prompt_name}_last_table'] = None
-        session.modified = True  # Ensure session is saved
+        session.modified = True
 
         return jsonify({'reply': reply})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+        
 @app.route('/reset/<prompt_name>', methods=['POST'])
 def reset_chat(prompt_name):
     history_key = f'chat_history_{prompt_name}'
@@ -284,12 +295,48 @@ def export_pdf(prompt_name):
     table_md = session.get(f'{prompt_name}_last_table')
     if not table_md:
         return "No table found to export.", 400
-    # Simple HTML template for PDF
-    html = f"<h2>{prompt_name.replace('_', ' ').title()} Export</h2><pre>{table_md}</pre>"
-    pdf = pdfkit.from_string(html, False)
-    response = make_response(pdf)
-    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.pdf"
-    response.headers["Content-type"] = "application/pdf"
+    
+    rows = parse_markdown_table(table_md)
+    if not rows:
+        return "Table parsing failed.", 400
+    
+    # Generate HTML table instead of PDF
+    html_table = "<table border='1' style='border-collapse: collapse; width: 100%;'>"
+    html_table += "<tr>"
+    for header in rows[0].keys():
+        html_table += f"<th style='padding: 8px; background-color: #f2f2f2;'>{header}</th>"
+    html_table += "</tr>"
+    
+    for row in rows:
+        html_table += "<tr>"
+        for cell in row.values():
+            html_table += f"<td style='padding: 8px;'>{cell}</td>"
+        html_table += "</tr>"
+    html_table += "</table>"
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{prompt_name.replace('_', ' ').title()} Export</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 20px; }}
+            h1 {{ color: #333; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+            th {{ background-color: #f2f2f2; }}
+        </style>
+    </head>
+    <body>
+        <h1>{prompt_name.replace('_', ' ').title()} Export</h1>
+        {html_table}
+    </body>
+    </html>
+    """
+    
+    response = make_response(html_content)
+    response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.html"
+    response.headers["Content-type"] = "text/html"
     return response
 
 @app.route('/export/schedule_builder/ics')
@@ -297,35 +344,73 @@ def export_ics():
     table_md = session.get('schedule_builder_last_table')
     if not table_md:
         return "No schedule to export.", 400
+    
     rows = parse_markdown_table(table_md)
     if not rows:
         return "Table parsing failed.", 400
 
     cal = Calendar()
-    # Example: parse time block like "9:00-10:30 AM"
+    today = datetime.today().date()
+    
     for row in rows:
-        time_block = row.get('Time Block') or row.get('Time') or row.get('Timeblock')
-        task = row.get('Task') or row.get('Task Name')
+        # Try different column name variations
+        time_block = (row.get('Time Block') or row.get('Time') or 
+                     row.get('Timeblock') or row.get('Time Slot'))
+        task = (row.get('Task') or row.get('Task Name') or 
+               row.get('Activity') or row.get('Description'))
+        
         if not time_block or not task:
             continue
-        # Very basic time parsing (customize as needed!)
-        match = re.match(r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*([APMapm\.]*)', time_block)
-        if match:
-            start_str, end_str, ampm = match.groups()
-            today = datetime.today().date()
-            start_time = datetime.strptime(start_str + ampm, "%I:%M%p").time()
-            end_time = datetime.strptime(end_str + ampm, "%I:%M%p").time()
-            start_dt = datetime.combine(today, start_time)
-            end_dt = datetime.combine(today, end_time)
-        else:
-            # fallback: skip this row
-            continue
-        e = Event()
-        e.name = task
-        e.begin = start_dt
-        e.end = end_dt
-        e.description = row.get('Notes', '')
-        cal.events.add(e)
+        
+        # Improved time parsing
+        time_patterns = [
+            r'(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*([APMapm]+)',
+            r'(\d{1,2}):(\d{2})\s*([APMapm]+)\s*-\s*(\d{1,2}):(\d{2})\s*([APMapm]+)',
+            r'(\d{1,2})\s*-\s*(\d{1,2})\s*([APMapm]+)'
+        ]
+        
+        start_dt = None
+        end_dt = None
+        
+        for pattern in time_patterns:
+            match = re.search(pattern, time_block, re.IGNORECASE)
+            if match:
+                try:
+                    groups = match.groups()
+                    if len(groups) == 5:  # Full time format
+                        start_hour, start_min, end_hour, end_min, period = groups
+                        period = period.upper()
+                        
+                        # Convert to 24-hour format
+                        start_hour = int(start_hour)
+                        end_hour = int(end_hour)
+                        
+                        if 'PM' in period and start_hour != 12:
+                            start_hour += 12
+                        elif 'AM' in period and start_hour == 12:
+                            start_hour = 0
+                            
+                        if 'PM' in period and end_hour != 12:
+                            end_hour += 12
+                        elif 'AM' in period and end_hour == 12:
+                            end_hour = 0
+                        
+                        start_dt = datetime.combine(today, datetime.min.time().replace(
+                            hour=start_hour, minute=int(start_min)))
+                        end_dt = datetime.combine(today, datetime.min.time().replace(
+                            hour=end_hour, minute=int(end_min)))
+                        break
+                except (ValueError, IndexError):
+                    continue
+        
+        if start_dt and end_dt:
+            e = Event()
+            e.name = task
+            e.begin = start_dt
+            e.end = end_dt
+            e.description = row.get('Notes', '') or row.get('Priority', '')
+            cal.events.add(e)
+    
     ics_content = str(cal)
     return Response(ics_content, mimetype="text/calendar",
                     headers={"Content-Disposition": "attachment; filename=schedule.ics"})
