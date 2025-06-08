@@ -2,22 +2,29 @@ import os
 import openai
 from flask import Flask, render_template, request, jsonify, abort, session, redirect, url_for, make_response, Response
 from flask_session import Session
+from flask_cors import CORS
 import csv
 import io
 from datetime import datetime, timedelta
-# Remove: import pdfkit
 from ics import Calendar, Event
 import re
-from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY")
+
+# FIXED: Proper session configuration for production
+app.secret_key = os.environ.get("SECRET_KEY", "FALLBACK_SECRET_KEY")
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_FILE_DIR'] = './flask_session_dir'
+app.config['SESSION_KEY_PREFIX'] = 'ai_assistant:'
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'  # Use /tmp for Render
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+# Enable CORS for session persistence
+CORS(app, supports_credentials=True)
+
 Session(app)
 
 PROMPTS = {
@@ -255,16 +262,34 @@ def chat_api(prompt_name):
         chat_history.append({"role": "assistant", "content": reply})
         session[history_key] = chat_history
 
-        # FIXED: Move table detection BEFORE return
-        markdown_tables = re.findall(r'(\|.+\|\n(?:\|[-:]+\|)+\n(?:\|.*\|\n?)*)', reply)
-        if markdown_tables:
-            session[f'{prompt_name}_last_table'] = markdown_tables[-1]
-        else:
-            session[f'{prompt_name}_last_table'] = None
-        session.modified = True
-
+        # ENHANCED: Multiple regex patterns for better table detection
+        table_patterns = [
+            r'(\|.+\|\n(?:\|[-:]+\|)+\n(?:\|.*\|\n?)*)',  # Standard markdown
+            r'(\|[^|]+\|(?:\n\|[^|]*\|)+)',  # Simpler pattern
+            r'(\|.*\|(?:\s*\n\s*\|.*\|)+)'   # Flexible spacing
+        ]
+        
+        markdown_table = None
+        for pattern in table_patterns:
+            matches = re.findall(pattern, reply, re.MULTILINE | re.DOTALL)
+            if matches:
+                markdown_table = matches[-1]  # Get the last/most recent table
+                print(f"DEBUG: Table found with pattern for {prompt_name}")
+                break
+        
+        # Store table with enhanced session handling
+        table_key = f'{prompt_name}_last_table'
+        session[table_key] = markdown_table
+        session.permanent = True  # Make session permanent
+        session.modified = True   # Force session save
+        
+        # Debug logging
+        print(f"DEBUG: Session keys after storage: {list(session.keys())}")
+        print(f"DEBUG: Table stored for {prompt_name}: {bool(markdown_table)}")
+        
         return jsonify({'reply': reply})
     except Exception as e:
+        print(f"ERROR in chat_api: {str(e)}")
         return jsonify({'error': str(e)}), 500
         
 @app.route('/reset/<prompt_name>', methods=['POST'])
@@ -275,12 +300,28 @@ def reset_chat(prompt_name):
 
 @app.route('/export/<prompt_name>/csv')
 def export_csv(prompt_name):
-    table_md = session.get(f'{prompt_name}_last_table')
+    table_key = f'{prompt_name}_last_table'
+    table_md = session.get(table_key)
+    
+    print(f"DEBUG CSV Export: Looking for key '{table_key}'")
+    print(f"DEBUG CSV Export: Session keys: {list(session.keys())}")
+    print(f"DEBUG CSV Export: Session ID: {request.cookies.get('session', 'None')}")
+    
     if not table_md:
-        return "No table found to export.", 400
+        # Try alternative session key formats as fallback
+        alt_keys = [f'{prompt_name}_table', f'last_table_{prompt_name}', 'last_table']
+        for alt_key in alt_keys:
+            table_md = session.get(alt_key)
+            if table_md:
+                print(f"DEBUG: Found table with alternative key: {alt_key}")
+                break
+    
+    if not table_md:
+        return f"No table found to export. Session keys: {list(session.keys())}", 400
+    
     rows = parse_markdown_table(table_md)
     if not rows:
-        return "Table parsing failed.", 400
+        return f"Table parsing failed. Raw table preview: {table_md[:200] if table_md else 'None'}", 400
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=rows[0].keys())
