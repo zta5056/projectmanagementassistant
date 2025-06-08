@@ -1,22 +1,22 @@
 import os
 import openai
 from flask import Flask, render_template, request, jsonify, abort, session, redirect, url_for, make_response, Response
-from flask_session import Session  # pip install Flask-Session
+from flask_session import Session
 import csv
 import io
 from datetime import datetime, timedelta
-from ics import Calendar, Event  # pip install ics
+# Remove: import pdfkit
+from ics import Calendar, Event
 import re
-from weasyprint import HTML, CSS
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_FILE_DIR'] = './flask_session_dir'  # Make sure this directory exists and is writable
+app.config['SESSION_FILE_DIR'] = './flask_session_dir'
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
+app.config['SESSION_COOKIE_SECURE'] = False
 Session(app)
 
 PROMPTS = {
@@ -382,4 +382,8 @@ def not_found(e):
 
 
 if __name__ == '__main__':
+    # For local development
     app.run(debug=True)
+else:
+    # For production deployment on Render
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
