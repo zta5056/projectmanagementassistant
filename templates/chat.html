@@ -5,6 +5,10 @@
     <title>{{ prompt_name.replace('_', ' ').title() }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Debug CSS loading -->
+    <script>
+        console.log('CSS URL:', "{{ url_for('static', filename='style.css') }}");
+    </script>
 </head>
 <body>
     <div class="chat-container">
