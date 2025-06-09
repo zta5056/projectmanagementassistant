@@ -50,10 +50,9 @@ PROMPTS = {
     "   \"Based on your inputs, I've created this draft schedule using time-blocking methodology:\\n\\n" +
     "   | Time Block       | Task                | Priority | Duration | Energy Level | \\n" +
     "   |------------------|---------------------|----------|----------|--------------|\\n" +
-    "   | 9:00-10:30 AM    | Client Proposal     | High     | 90m      | ⚡⚡⚡⚡        |\\n" +
+    "   | 9:00-10:30 AM    | Client Proposal     | High     | 90m      | 1-10        |\\n" +
     "   | 10:30-10:45 AM   | Coffee Break        | Buffer   | 15m      | -            |\\n\\n" +
     "   *Features*:\\n" +
-    "   - Color-coded priority levels (🔴High, 🟡Medium, 🟢Low)\\n" +
     "   - Built-in transition buffers\\n" +
     "   - Energy-aware task sequencing\"\n\n" +
     
@@ -106,7 +105,7 @@ PROMPTS = {
     "   |---------|----------------------|------------------|--------------|------------|----------------|\\n" +
     "   | RR-001  | Supply chain disruption | 3               | 4            | 12         | Operational    |\\n" +
     "   *Scoring Key*:\\n" +
-    "   - 🔴 15-25: Critical | 🟠 8-14: High | 🟡 4-7: Medium | 🟢 1-3: Low\"\n\n" +
+    "   - 15-25: Critical | 8-14: High |  4-7: Medium |  1-3: Low\"\n\n" +
     
     "4. **Mitigation Engineering**:\n" +
     "   \"For each high-priority risk, I'll provide:\\n" +
@@ -124,7 +123,6 @@ PROMPTS = {
     
     "**Output Standards**:\n" +
     "- Dynamic Markdown tables with sortable columns\\n" +
-    "- Risk heat maps using 🟥🟧🟨🟩 color coding\\n" +
     "- Actionable SMART mitigation plans\\n" +
     "- Time savings breakdown: 63% faster vs manual processes\\n" +
     "- Export formats: CSV, PDF, Jira integration\n\n" +
