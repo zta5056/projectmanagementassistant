@@ -198,26 +198,62 @@ openai.api_key = os.environ.get("OPENAI_API_KEY")  # Make sure your key is set
 
 def parse_markdown_table(markdown):
     if not markdown:
+        print("DEBUG: No markdown provided to parse")
         return []
+    
+    print(f"DEBUG: Parsing markdown table: {markdown[:200]}...")
     
     lines = [line.strip() for line in markdown.strip().split('\n') if line.strip()]
-    table_lines = [line for line in lines if '|' in line and line.count('|') >= 2]
+    
+    # Handle single line tables (like your current case)
+    if len(lines) == 1:
+        line = lines[0]
+        cells = [c.strip() for c in line.split('|') if c.strip()]
+        if len(cells) >= 2:
+            # Create generic headers for single-row tables
+            headers = [f'Column {i+1}' for i in range(len(cells))]
+            print(f"DEBUG: Single-row table with {len(cells)} columns")
+            return [dict(zip(headers, cells))]
+    
+    # Filter lines that look like table rows (contain at least 2 pipes)
+    table_lines = [line for line in lines if line.count('|') >= 2]
     
     if len(table_lines) < 2:
+        print("DEBUG: Not enough table lines found")
         return []
     
-    # Parse headers
-    headers = [h.strip() for h in table_lines[0].split('|')[1:-1] if h.strip()]
-    if not headers:
-        return []
+    # Parse headers from first line
+    header_line = table_lines[0]
+    headers = [h.strip() for h in header_line.split('|') if h.strip()]
     
-    # Skip separator line and parse data rows
+    print(f"DEBUG: Headers found: {headers}")
+    
+    if not headers or len(headers) < 2:
+        print("DEBUG: Invalid headers, using generic column names")
+        # Fallback to generic headers
+        max_cols = max(len([c for c in line.split('|') if c.strip()]) for line in table_lines)
+        headers = [f'Column {i+1}' for i in range(max_cols)]
+    
+    # Skip separator line (if exists) and parse data rows
+    start_row = 2 if len(table_lines) > 2 and '-' in table_lines[1] else 1
+    
     rows = []
-    for line in table_lines[2:]:  # Skip header and separator
-        cells = [c.strip() for c in line.split('|')[1:-1]]
-        if len(cells) == len(headers):
-            rows.append(dict(zip(headers, cells)))
+    for i, line in enumerate(table_lines[start_row:], start_row):
+        cells = [c.strip() for c in line.split('|') if c.strip()]
+        
+        print(f"DEBUG: Row {i-start_row+1} cells: {cells}")
+        
+        # Ensure we have the right number of cells
+        if len(cells) < len(headers):
+            cells += [''] * (len(headers) - len(cells))
+        elif len(cells) > len(headers):
+            cells = cells[:len(headers)]
+        
+        if cells:  # Only add non-empty rows
+            row_data = dict(zip(headers, cells))
+            rows.append(row_data)
     
+    print(f"DEBUG: Successfully parsed {len(rows)} rows")
     return rows
 
 @app.route('/')
@@ -303,25 +339,33 @@ def export_csv(prompt_name):
     table_key = f'{prompt_name}_last_table'
     table_md = session.get(table_key)
     
-    print(f"DEBUG CSV Export: Looking for key '{table_key}'")
-    print(f"DEBUG CSV Export: Session keys: {list(session.keys())}")
-    print(f"DEBUG CSV Export: Session ID: {request.cookies.get('session', 'None')}")
-    
-    if not table_md:
-        # Try alternative session key formats as fallback
-        alt_keys = [f'{prompt_name}_table', f'last_table_{prompt_name}', 'last_table']
-        for alt_key in alt_keys:
-            table_md = session.get(alt_key)
-            if table_md:
-                print(f"DEBUG: Found table with alternative key: {alt_key}")
-                break
+    print(f"DEBUG CSV Export: Raw table: {table_md}")
     
     if not table_md:
         return f"No table found to export. Session keys: {list(session.keys())}", 400
     
     rows = parse_markdown_table(table_md)
     if not rows:
-        return f"Table parsing failed. Raw table preview: {table_md[:200] if table_md else 'None'}", 400
+        # Try to create a minimal export from the raw data
+        if '|' in table_md:
+            cells = [c.strip() for c in table_md.split('|') if c.strip()]
+            if len(cells) >= 2:
+                # Create a simple two-column export
+                output = io.StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['Data', 'Value'])  # Generic headers
+                for i in range(0, len(cells), 2):
+                    if i + 1 < len(cells):
+                        writer.writerow([cells[i], cells[i+1]])
+                    else:
+                        writer.writerow([cells[i], ''])
+                
+                response = make_response(output.getvalue())
+                response.headers["Content-Disposition"] = f"attachment; filename={prompt_name}_export.csv"
+                response.headers["Content-type"] = "text/csv"
+                return response
+        
+        return f"Table parsing failed. Raw data: {table_md}", 400
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=rows[0].keys())
