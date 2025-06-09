@@ -85,6 +85,9 @@
         });
 
         document.querySelectorAll('.export-buttons a').forEach(link => {
+            // Store original text when page loads
+            const originalText = link.textContent;
+            
             link.addEventListener('click', function(e) {
                 // Add loading state
                 this.style.opacity = '0.6';
@@ -92,7 +95,7 @@
                 
                 setTimeout(() => {
                     this.style.opacity = '1';
-                    this.textContent = this.textContent.replace('Exporting...', this.getAttribute('data-original-text') || 'Export');
+                    this.textContent = originalText; // Restore the actual original text
                 }, 2000);
             });
         });
