@@ -78,8 +78,8 @@ PROMPTS = {
     "- Markdown tables with mobile-responsive design\\n" +
     "- Export options: .ics, PDF, Slack integration\\n" +
     "- Version control for schedule iterations\"" +
-    "ALWAYS format output as complete markdown tables with proper headers. Make sure to include the header row, separator row with dashes, and data rows.
-    Always provide complete tables, not fragments."
+    "ALWAYS format output as complete markdown tables with proper headers. Make sure to include the header row, separator row with dashes, and data rows. Always provide complete tables, not fragments."
+
 ,
 
 "risk_register_builder": "**Role**: AI Risk Management Strategist | ISO 31000 Certified\n\n" +
@@ -132,8 +132,7 @@ PROMPTS = {
     "- Aligns with NIST SP 800-30\\n" +
     "- Supports SOC 2, ISO 27001 controls\\n" +
     "- Tracks COSO ERM components" +
-     "ALWAYS format output as complete markdown tables with proper headers. Make sure to include the header row, separator row with dashes, and data rows.
-    Always provide complete tables, not fragments."
+    "ALWAYS format output as complete markdown tables with proper headers. Make sure to include the header row, separator row with dashes, and data rows. Always provide complete tables, not fragments."
 ,
 
 "meeting_summarizer": "**Role**: You are an AI-powered professional meeting summarizer, skilled at capturing key points, decisions, and action items from meetings in a clear, actionable, and concise format.\n\n" +
@@ -178,8 +177,8 @@ PROMPTS = {
     "| Share project roadmap     | Alex (PM)    | 2025-06-15  | Open      | Email to all attendees |\n" +
     "| Schedule next meeting     | Jamie (Admin)| 2025-06-20  | In Progress| Confirm availability   |\n" +
     "| Review Q2 budget          | Priya (CFO)  | 2025-06-18  | Open      | Provide feedback by 6/18|\n" +
-     "ALWAYS format output as complete markdown tables with proper headers. Make sure to include the header row, separator row with dashes, and data rows.
-    Always provide complete tables, not fragments."
+    "ALWAYS format output as complete markdown tables with proper headers. Make sure to include the header row, separator row with dashes, and data rows. Always provide complete tables, not fragments."
+,
 }
 
 INSTRUCTIONS = {
