@@ -201,22 +201,18 @@ def parse_markdown_table(markdown):
         print("DEBUG: No markdown provided to parse")
         return []
     
-    print(f"DEBUG: Parsing markdown table: {markdown[:200]}...")
+    print(f"DEBUG: Full markdown to parse: {markdown}")
     
-    lines = [line.strip() for line in markdown.strip().split('\n') if line.strip()]
+    # Split into lines and clean up
+    lines = [line.strip() for line in markdown.strip().split('\n')]
     
-    # Handle single line tables (like your current case)
-    if len(lines) == 1:
-        line = lines[0]
-        cells = [c.strip() for c in line.split('|') if c.strip()]
-        if len(cells) >= 2:
-            # Create generic headers for single-row tables
-            headers = [f'Column {i+1}' for i in range(len(cells))]
-            print(f"DEBUG: Single-row table with {len(cells)} columns")
-            return [dict(zip(headers, cells))]
+    # Find all lines that contain table data (have multiple |)
+    table_lines = []
+    for line in lines:
+        if line.count('|') >= 3:  # At least 3 pipes for a proper table row
+            table_lines.append(line)
     
-    # Filter lines that look like table rows (contain at least 2 pipes)
-    table_lines = [line for line in lines if line.count('|') >= 2]
+    print(f"DEBUG: Found {len(table_lines)} potential table lines")
     
     if len(table_lines) < 2:
         print("DEBUG: Not enough table lines found")
@@ -224,36 +220,49 @@ def parse_markdown_table(markdown):
     
     # Parse headers from first line
     header_line = table_lines[0]
-    headers = [h.strip() for h in header_line.split('|') if h.strip()]
+    headers = []
+    header_parts = header_line.split('|')
+    for part in header_parts:
+        cleaned = part.strip()
+        if cleaned and cleaned not in ['', '-', ':']:
+            headers.append(cleaned)
     
-    print(f"DEBUG: Headers found: {headers}")
+    print(f"DEBUG: Parsed headers: {headers}")
     
-    if not headers or len(headers) < 2:
-        print("DEBUG: Invalid headers, using generic column names")
-        # Fallback to generic headers
-        max_cols = max(len([c for c in line.split('|') if c.strip()]) for line in table_lines)
-        headers = [f'Column {i+1}' for i in range(max_cols)]
+    if len(headers) < 2:
+        print("DEBUG: Not enough valid headers found")
+        return []
     
-    # Skip separator line (if exists) and parse data rows
-    start_row = 2 if len(table_lines) > 2 and '-' in table_lines[1] else 1
+    # Skip separator line (usually contains dashes)
+    data_start_index = 1
+    if len(table_lines) > 1 and '-' in table_lines[1]:
+        data_start_index = 2
     
+    # Parse data rows
     rows = []
-    for i, line in enumerate(table_lines[start_row:], start_row):
-        cells = [c.strip() for c in line.split('|') if c.strip()]
+    for i in range(data_start_index, len(table_lines)):
+        line = table_lines[i]
+        cells = []
+        cell_parts = line.split('|')
         
-        print(f"DEBUG: Row {i-start_row+1} cells: {cells}")
+        for part in cell_parts:
+            cleaned = part.strip()
+            if cleaned:  # Only add non-empty cells
+                cells.append(cleaned)
         
-        # Ensure we have the right number of cells
-        if len(cells) < len(headers):
-            cells += [''] * (len(headers) - len(cells))
-        elif len(cells) > len(headers):
-            cells = cells[:len(headers)]
+        print(f"DEBUG: Row {i-data_start_index+1} cells: {cells}")
         
-        if cells:  # Only add non-empty rows
-            row_data = dict(zip(headers, cells))
+        # Match cells to headers
+        if len(cells) >= len(headers):
+            row_data = {}
+            for j, header in enumerate(headers):
+                if j < len(cells):
+                    row_data[header] = cells[j]
+                else:
+                    row_data[header] = ''
             rows.append(row_data)
     
-    print(f"DEBUG: Successfully parsed {len(rows)} rows")
+    print(f"DEBUG: Successfully parsed {len(rows)} complete rows")
     return rows
 
 @app.route('/')
@@ -298,30 +307,33 @@ def chat_api(prompt_name):
         chat_history.append({"role": "assistant", "content": reply})
         session[history_key] = chat_history
 
-        # ENHANCED: Multiple regex patterns for better table detection
+        # IMPROVED: More comprehensive table detection
         table_patterns = [
-            r'(\|.+\|\n(?:\|[-:]+\|)+\n(?:\|.*\|\n?)*)',  # Standard markdown
-            r'(\|[^|]+\|(?:\n\|[^|]*\|)+)',  # Simpler pattern
-            r'(\|.*\|(?:\s*\n\s*\|.*\|)+)'   # Flexible spacing
+            # Complete table with headers and multiple rows
+            r'((?:\|[^|\n]+)+\|\n(?:\|[-:\s]+)+\|\n(?:(?:\|[^|\n]*)+\|\n?)+)',
+            # Flexible pattern for tables with varying content
+            r'(\|.*\|(?:\n\|.*\|)+)',
+            # Capture everything between first | and last | across multiple lines
+            r'(\|[^|]*\|(?:\s*\n\s*\|[^|]*\|)*)'
         ]
         
         markdown_table = None
-        for pattern in table_patterns:
+        for i, pattern in enumerate(table_patterns):
             matches = re.findall(pattern, reply, re.MULTILINE | re.DOTALL)
             if matches:
-                markdown_table = matches[-1]  # Get the last/most recent table
-                print(f"DEBUG: Table found with pattern for {prompt_name}")
+                # Find the longest match (most complete table)
+                markdown_table = max(matches, key=len)
+                print(f"DEBUG: Table found with pattern {i+1} for {prompt_name}")
+                print(f"DEBUG: Table length: {len(markdown_table)} chars")
                 break
         
-        # Store table with enhanced session handling
+        # Store the complete table
         table_key = f'{prompt_name}_last_table'
         session[table_key] = markdown_table
-        session.permanent = True  # Make session permanent
-        session.modified = True   # Force session save
+        session.permanent = True
+        session.modified = True
         
-        # Debug logging
-        print(f"DEBUG: Session keys after storage: {list(session.keys())}")
-        print(f"DEBUG: Table stored for {prompt_name}: {bool(markdown_table)}")
+        print(f"DEBUG: Complete table stored: {markdown_table[:300] if markdown_table else 'None'}...")
         
         return jsonify({'reply': reply})
     except Exception as e:
