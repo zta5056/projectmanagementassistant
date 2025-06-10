@@ -1,6 +1,6 @@
 import os
 import openai
-from flask import Flask, render_template, request, jsonify, abort, session, redirect, url_for, make_response, Response
+from flask import Flask, render_template, request, jsonify, abort, session, redirect, url_for, make_response, Response, send_from_directory
 from flask_session import Session
 from flask_cors import CORS
 import csv
@@ -541,6 +541,11 @@ def export_ics():
     ics_content = str(cal)
     return Response(ics_content, mimetype="text/calendar",
                     headers={"Content-Disposition": "attachment; filename=schedule.ics"})
+
+@app.route('/user-guide')
+def user_guide():
+    """Serve the user guide PDF"""
+    return send_from_directory('static', 'user_guide.pdf', as_attachment=False)
 
 @app.errorhandler(404)
 def not_found(e):
