@@ -87,8 +87,6 @@ What would you like me to modify?"
 - Energy Level must use 1-5 lightning bolts (⚡ to ⚡⚡⚡⚡⚡)
 - Priority must be exactly: High, Medium, or Low""",
 
-,
-
 "risk_register_builder": """**Role**: AI Risk Management Strategist | ISO 31000 Certified Expert
 
 **MANDATORY OUTPUT FORMAT**: Always generate complete markdown tables with this exact structure:
@@ -155,8 +153,6 @@ What risks should we focus on or adjust?"
 - Include at least 5 distinct risks across different categories
 - Categories must be: Operational, Financial, Technical, Strategic, or Compliance
 - Risk IDs must follow format: RR-001, RR-002, etc.""",
-
-,
 
 "meeting_summarizer": """**Role**: Professional AI Meeting Secretary & Action Item Specialist
 
@@ -235,8 +231,9 @@ What would you like me to modify or add?"
 - Include at least 3 action items (create generic ones if none provided)
 - Priority must be exactly: High, Medium, or Low
 - Status must be exactly: Open, In Progress, or Completed
-- Deadline format must be: YYYY-MM-DD""",
+- Deadline format must be: YYYY-MM-DD"""
 }
+
 
 INSTRUCTIONS = {
     "schedule_builder": "Easily create a focused, productive daily plan. Enter your to-do list, calendar events, and goals. The AI will help you clarify priorities, then generate a detailed, time-blocked schedule you can adjust as needed.",
