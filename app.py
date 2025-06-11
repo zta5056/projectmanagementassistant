@@ -235,7 +235,7 @@ What would you like me to modify or add?"
 - Include at least 3 action items (create generic ones if none provided)
 - Priority must be exactly: High, Medium, or Low
 - Status must be exactly: Open, In Progress, or Completed
-- Deadline format must be: YYYY-MM-DD"""
+- Deadline format must be: YYYY-MM-DD""",
 }
 
 INSTRUCTIONS = {
