@@ -1,4 +1,4 @@
-/* Professional AI Business Assistant Theme - Enhanced */
+/* Professional AI Business Assistant Theme - Light Mode Fixed */
 :root {
   /* Primary Brand Colors */
   --primary: #1e40af;
@@ -12,14 +12,14 @@
   --accent: #06b6d4;
   --accent-light: #67e8f9;
   
-  /* Neutral Colors */
+  /* Neutral Colors - FIXED for light mode */
   --background: #f8fafc;
   --surface: #ffffff;
   --surface-alt: #f1f5f9;
   --border: #e2e8f0;
   --border-light: #f1f5f9;
   
-  /* Text Colors */
+  /* Text Colors - FIXED for proper contrast */
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
@@ -47,6 +47,11 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+/* FORCE LIGHT MODE - Override any dark mode preferences */
+html {
+  color-scheme: light only;
+}
+
 /* Global Styles */
 * {
   box-sizing: border-box;
@@ -54,8 +59,8 @@
 
 body {
   font-family: var(--font-primary);
-  background: var(--background);
-  color: var(--text-primary);
+  background: var(--background) !important;
+  color: var(--text-primary) !important;
   margin: 0;
   padding: 0;
   line-height: 1.6;
@@ -270,16 +275,17 @@ body {
   color: var(--primary);
 }
 
-/* Prompt Description */
+/* FIXED: Prompt Description with proper contrast */
 .prompt-description {
-  background: var(--primary-bg);
+  background: var(--primary-bg) !important;
   border: 1px solid var(--border-light);
   border-left: 4px solid var(--primary);
   padding: 1rem 1.25rem;
   border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  color: var(--text-primary) !important; /* FIXED: Changed from text-secondary for better contrast */
   margin-bottom: 2rem;
   font-size: 0.95rem;
+  font-weight: 500; /* ADDED: Better text weight */
 }
 
 /* Chat Log */
@@ -376,7 +382,7 @@ body {
   font-size: 0.9em;
 }
 
-/* Input Section */
+/* FIXED: Input Section with proper text contrast */
 .input-section {
   margin-bottom: 2rem;
 }
@@ -398,13 +404,20 @@ body {
   min-height: 60px;
   max-height: 150px;
   transition: all 0.2s ease;
-  background: var(--surface);
+  background: var(--surface) !important; /* FIXED: Force white background */
+  color: var(--text-primary) !important; /* FIXED: Force dark text */
+}
+
+.input-row textarea::placeholder {
+  color: var(--text-muted) !important; /* FIXED: Proper placeholder color */
 }
 
 .input-row textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+  background: var(--surface) !important; /* FIXED: Maintain white background on focus */
+  color: var(--text-primary) !important; /* FIXED: Maintain dark text on focus */
 }
 
 .input-row button {
@@ -704,19 +717,8 @@ body {
   }
 }
 
-/* Dark Mode Support (Future Enhancement) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f172a;
-    --surface: #1e293b;
-    --surface-alt: #334155;
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
-    --border: #475569;
-    --border-light: #374151;
-  }
-}
+/* REMOVED: Dark mode auto-detection to force light mode */
+/* The dark mode media query has been removed to ensure light mode only */
 
 /* Smooth Scrolling */
 html {
