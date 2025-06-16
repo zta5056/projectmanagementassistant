@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Business Assistant Platform</title>
+    <meta name="description" content="Professional AI-powered business tools for scheduling, risk management, and meeting summarization">
 </head>
 <body>
     <div class="main-container">
@@ -14,8 +15,8 @@
         </header>
         
         <div class="user-guide-section">
-            <a href="{{ url_for('static', filename='user_guide.pdf') }}" target="_blank" class="user-guide-btn">
-                <svg class="guide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <a href="{{ url_for('user_guide') }}" target="_blank" class="user-guide-btn" aria-label="Open User Guide PDF">
+                <svg class="guide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14,2 14,8 20,8"></polyline>
                     <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -27,36 +28,55 @@
         </div>
 
         <div class="applications-grid">
-            <div class="app-card" onclick="window.location.href='/schedule_builder'">
-                <div class="app-icon schedule-icon">📅</div>
+            <div class="app-card" onclick="window.location.href='/schedule_builder'" role="button" tabindex="0" aria-label="Open Schedule Builder Application">
+                <div class="app-icon schedule-icon" aria-hidden="true">📅</div>
                 <h3 class="app-title">Schedule Builder</h3>
-                <p class="app-description">Build detailed daily schedules based on to-do lists and goals</p>
+                <p class="app-description">Build detailed daily schedules based on to-do lists and goals with intelligent time-blocking</p>
                 <div class="app-features">
                     <span class="feature-tag">Time Blocking</span>
                     <span class="feature-tag">Priority Management</span>
+                    <span class="feature-tag">Energy Optimization</span>
                 </div>
             </div>
 
-            <div class="app-card" onclick="window.location.href='/risk_register_builder'">
-                <div class="app-icon risk-icon">⚠️</div>
+            <div class="app-card" onclick="window.location.href='/risk_register_builder'" role="button" tabindex="0" aria-label="Open Risk Register Builder Application">
+                <div class="app-icon risk-icon" aria-hidden="true">⚠️</div>
                 <h3 class="app-title">Risk Register Builder</h3>
-                <p class="app-description">Create comprehensive risk registers for business projects</p>
+                <p class="app-description">Create comprehensive risk registers for business projects with systematic assessment</p>
                 <div class="app-features">
                     <span class="feature-tag">Risk Assessment</span>
                     <span class="feature-tag">Mitigation Plans</span>
+                    <span class="feature-tag">Compliance Ready</span>
                 </div>
             </div>
 
-            <div class="app-card" onclick="window.location.href='/meeting_summarizer'">
-                <div class="app-icon meeting-icon">📝</div>
+            <div class="app-card" onclick="window.location.href='/meeting_summarizer'" role="button" tabindex="0" aria-label="Open Meeting Summarizer Application">
+                <div class="app-icon meeting-icon" aria-hidden="true">📝</div>
                 <h3 class="app-title">Meeting Summarizer</h3>
-                <p class="app-description">Generate clear and actionable meeting summaries</p>
+                <p class="app-description">Generate clear and actionable meeting summaries with structured action items</p>
                 <div class="app-features">
                     <span class="feature-tag">Action Items</span>
                     <span class="feature-tag">Key Decisions</span>
+                    <span class="feature-tag">Follow-up Tracking</span>
                 </div>
             </div>
         </div>
+
+        <footer class="footer">
+            <p>&copy; 2025 AI Business Assistant Platform. Professional business automation tools.</p>
+        </footer>
     </div>
+
+    <script>
+        // Enhanced keyboard navigation
+        document.querySelectorAll('.app-card').forEach(card => {
+            card.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
