@@ -92,6 +92,15 @@ PROMPTS = {
 |------------|------|----------|----------|--------------|
 | 9:00-10:00 AM | [specific task] | High | 60m | ⚡⚡⚡⚡ |
 
+
+**CRITICAL TIME BLOCK RULES:**
+- End time must ALWAYS be after start time
+- Use proper AM/PM format consistently
+- Avoid zero-duration blocks (same start and end time)
+- Example valid format: "9:00 AM - 10:30 AM"
+- Example invalid format: "1:00 PM - 12:00 PM" (NEVER do this)
+
+
 **INTERACTION PROCESS**:
 
 **Phase 1: Initial Greeting & Information Gathering**
@@ -781,6 +790,7 @@ def export_ics():
 
         cal = Calendar()
         today = datetime.today().date()
+        valid_events = 0
         
         for row in rows:
             # Try different column name variations
@@ -792,7 +802,7 @@ def export_ics():
             if not time_block or not task:
                 continue
             
-            # Enhanced time parsing with multiple patterns
+            # Enhanced time parsing with validation
             time_patterns = [
                 r'(\d{1,2}):(\d{2})\s*([APMapm]{2})\s*-\s*(\d{1,2}):(\d{2})\s*([APMapm]{2})',
                 r'(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*([APMapm]{2})',
@@ -837,21 +847,30 @@ def export_ics():
                                 hour=start_hour, minute=start_min))
                             end_dt = datetime.combine(today, datetime.min.time().replace(
                                 hour=end_hour, minute=end_min))
+                            
+                            # CRITICAL: Validate that end is after start
+                            if end_dt <= start_dt:
+                                print(f"DEBUG: Invalid time block skipped: {time_block} (end <= start)")
+                                start_dt = end_dt = None
+                                continue
+                            
                             break
                     except (ValueError, IndexError) as e:
                         print(f"DEBUG: Time parsing error: {e}")
                         continue
             
-            if start_dt and end_dt:
+            # Only create event if we have valid start and end times
+            if start_dt and end_dt and end_dt > start_dt:
                 e = Event()
                 e.name = task
                 e.begin = start_dt
                 e.end = end_dt
                 e.description = f"Priority: {row.get('Priority', 'N/A')}\nDuration: {row.get('Duration', 'N/A')}\nEnergy Level: {row.get('Energy Level', 'N/A')}"
                 cal.events.add(e)
+                valid_events += 1
         
-        if not cal.events:
-            return jsonify({'error': 'No valid time blocks found in schedule for ICS export.'}), 400
+        if valid_events == 0:
+            return jsonify({'error': 'No valid time blocks found in schedule for ICS export. Please check your schedule format.'}), 400
         
         ics_content = str(cal)
         response = Response(ics_content, mimetype="text/calendar")
@@ -861,6 +880,7 @@ def export_ics():
     except Exception as e:
         print(f"ERROR in ICS export: {str(e)}")
         return jsonify({'error': f'ICS export failed: {str(e)}'}), 500
+
 
 @app.route('/user-guide')
 def user_guide():
