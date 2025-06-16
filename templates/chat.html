@@ -2,101 +2,237 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ prompt_name.replace('_', ' ').title() }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ prompt_name.replace('_', ' ').title() }} - AI Business Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Debug CSS loading -->
-    <script>
-        console.log('CSS URL:', "{{ url_for('static', filename='style.css') }}");
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
 </head>
 <body>
     <div class="chat-container">
-        <h1>{{ prompt_name.replace('_', ' ').title() }}</h1>
+        <div class="chat-header">
+            <h1>{{ prompt_name.replace('_', ' ').title() }}</h1>
+            <a href="/" class="back-link" aria-label="Back to Home">← Back to Home</a>
+        </div>
+        
         <div class="prompt-description">{{ prompt_instruction }}</div>
-        <div id="chat-log" class="chat-log">
+        
+        <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Chat conversation">
             <div class="chat-bubble ai">{{ initial_ai_message }}</div>
         </div>
-        <div class="input-row">
-            <textarea id="user-input" placeholder="Type your message..." autocomplete="off" rows="3"></textarea>
-            <button id="send-btn" type="button">Send</button>
+        
+        <div class="input-section">
+            <div class="input-row">
+                <textarea 
+                    id="user-input" 
+                    placeholder="Type your message..." 
+                    autocomplete="off" 
+                    rows="3"
+                    maxlength="5000"
+                    aria-label="Message input"
+                ></textarea>
+                <button id="send-btn" type="button" aria-label="Send message">
+                    <span class="btn-text">Send</span>
+                    <span class="btn-loading" style="display: none;">Sending...</span>
+                </button>
+            </div>
+            
+            <div class="char-counter">
+                <span id="char-count">0</span>/5000 characters
+            </div>
         </div>
-        <button id="reset-btn" type="button">Start New Schedule</button>
-        <div class="export-buttons">
-            <a href="/export/{{ prompt_name }}/csv" class="btn" target="_blank">Export as CSV</a>
-            <a href="/export/{{ prompt_name }}/pdf" class="btn" target="_blank">Export as PDF</a>
-            {% if prompt_name == "schedule_builder" %}
-                <a href="/export/schedule_builder/ics" class="btn" target="_blank">Export as ICS</a>
-            {% endif %}
+        
+        <button id="reset-btn" type="button" aria-label="Start new conversation">
+            🔄 Start New Session
+        </button>
+        
+        <div class="export-section">
+            <h3>Export Options</h3>
+            <div class="export-buttons">
+                <a href="/export/{{ prompt_name }}/csv" class="btn export-btn" target="_blank" aria-label="Export as CSV file">
+                    📊 Export as CSV
+                </a>
+                <a href="/export/{{ prompt_name }}/pdf" class="btn export-btn" target="_blank" aria-label="Export as PDF file">
+                    📄 Export as PDF
+                </a>
+                {% if prompt_name == "schedule_builder" %}
+                    <a href="/export/schedule_builder/ics" class="btn export-btn" target="_blank" aria-label="Export as ICS calendar file">
+                        📅 Export as ICS
+                    </a>
+                {% endif %}
+            </div>
+            <p class="export-note">
+                <strong>Note:</strong> Export functions work after you've generated content with the AI assistant.
+            </p>
         </div>
     </div>
-    <script>
-        function addMessage(content, sender) {
-        const div = document.createElement('div');
-        div.className = 'chat-bubble ' + sender;
-        if (sender === 'ai') {
-            // Render Markdown as HTML for AI responses
-            div.innerHTML = marked.parse(content);
-        } else {
-            div.textContent = content;
-        }
-        document.getElementById('chat-log').appendChild(div);
-        document.getElementById('chat-log').scrollTop = document.getElementById('chat-log').scrollHeight;
-}
 
+    <script>
+        // Enhanced message handling with XSS prevention
+        function addMessage(content, sender) {
+            const div = document.createElement('div');
+            div.className = 'chat-bubble ' + sender;
+            
+            if (sender === 'ai') {
+                // Sanitize and render markdown for AI responses
+                const sanitized = DOMPurify.sanitize(content);
+                div.innerHTML = marked.parse(sanitized);
+            } else {
+                // Use textContent for user messages to prevent XSS
+                div.textContent = content;
+            }
+            
+            const chatLog = document.getElementById('chat-log');
+            chatLog.appendChild(div);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        // Enhanced send message with loading states
         async function sendMessage() {
             const input = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
             const message = input.value.trim();
+            
             if (!message) return;
+            
+            // Validate message length
+            if (message.length > 5000) {
+                addMessage("Message too long. Please limit to 5000 characters.", 'ai');
+                return;
+            }
+            
+            // Show loading state
+            sendBtn.disabled = true;
+            sendBtn.querySelector('.btn-text').style.display = 'none';
+            sendBtn.querySelector('.btn-loading').style.display = 'inline';
+            
             addMessage(message, 'user');
             input.value = '';
+            updateCharCount();
+            
             try {
                 const response = await fetch(`/api/chat/{{ prompt_name }}`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message})
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({message}),
+                    credentials: 'same-origin'
                 });
+                
                 const data = await response.json();
-                if (data.reply) addMessage(data.reply, 'ai');
-                else addMessage("Error: " + (data.error || "Unknown error"), 'ai');
+                
+                if (response.ok && data.reply) {
+                    addMessage(data.reply, 'ai');
+                } else {
+                    addMessage("Error: " + (data.error || "Unknown error occurred"), 'ai');
+                }
             } catch (err) {
-                addMessage("Error: Could not reach server.", 'ai');
+                console.error('Send message error:', err);
+                addMessage("Error: Could not reach server. Please check your connection.", 'ai');
+            } finally {
+                // Reset loading state
+                sendBtn.disabled = false;
+                sendBtn.querySelector('.btn-text').style.display = 'inline';
+                sendBtn.querySelector('.btn-loading').style.display = 'none';
             }
         }
 
-        document.getElementById('user-input').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-        }); // Added missing closing bracket
-    
-        // Move these outside the keydown listener
-        const textarea = document.getElementById('user-input');
-        textarea.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
-        document.getElementById('send-btn').addEventListener('click', sendMessage);
-
-        document.getElementById('reset-btn').addEventListener('click', async function() {
-            await fetch(`/reset/{{ prompt_name }}`, {method: 'POST'});
-            location.reload();  // Reloads the page, now with cleared session
-        });
-
-        document.querySelectorAll('.export-buttons a').forEach(link => {
-            // Store original text when page loads
-            const originalText = link.textContent;
+        // Character counter
+        function updateCharCount() {
+            const input = document.getElementById('user-input');
+            const counter = document.getElementById('char-count');
+            const count = input.value.length;
+            counter.textContent = count;
             
-            link.addEventListener('click', function(e) {
-                // Add loading state
-                this.style.opacity = '0.6';
-                this.textContent = 'Exporting...';
+            // Visual feedback for approaching limit
+            if (count > 4500) {
+                counter.style.color = '#dc2626';
+            } else if (count > 4000) {
+                counter.style.color = '#f59e0b';
+            } else {
+                counter.style.color = '#64748b';
+            }
+        }
+
+        // Enhanced event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const textarea = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            // Auto-resize textarea
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+                updateCharCount();
+            });
+
+            // Enhanced keyboard handling
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            sendBtn.addEventListener('click', sendMessage);
+
+            // Enhanced reset functionality
+            resetBtn.addEventListener('click', async function() {
+                if (!confirm('Are you sure you want to start a new session? This will clear all conversation history.')) {
+                    return;
+                }
                 
-                setTimeout(() => {
-                    this.style.opacity = '1';
-                    this.textContent = originalText; // Restore the actual original text
-                }, 2000);
+                this.disabled = true;
+                this.textContent = 'Resetting...';
+                
+                try {
+                    await fetch(`/reset/{{ prompt_name }}`, {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+                    location.reload();
+                } catch (err) {
+                    console.error('Reset error:', err);
+                    alert('Failed to reset session. Please refresh the page.');
+                } finally {
+                    this.disabled = false;
+                    this.textContent = '🔄 Start New Session';
+                }
+            });
+
+            // Enhanced export button handling
+            document.querySelectorAll('.export-btn').forEach(link => {
+                const originalText = link.textContent;
+                
+                link.addEventListener('click', function(e) {
+                    // Visual feedback
+                    this.style.opacity = '0.7';
+                    this.style.pointerEvents = 'none';
+                    
+                    const icon = this.textContent.split(' ')[0];
+                    this.textContent = icon + ' Exporting...';
+                    
+                    setTimeout(() => {
+                        this.style.opacity = '1';
+                        this.style.pointerEvents = 'auto';
+                        this.textContent = originalText;
+                    }, 3000);
+                });
+            });
+
+            // Initialize character counter
+            updateCharCount();
+        });
+
+        // Error handling for failed exports
+        window.addEventListener('beforeunload', function() {
+            // Reset any loading states
+            document.querySelectorAll('.export-btn').forEach(btn => {
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
             });
         });
     </script>
