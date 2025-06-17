@@ -389,13 +389,18 @@ def parse_markdown_table(markdown):
     # Split into lines and clean up
     lines = [line.strip() for line in markdown.strip().split('\n')]
     
-    # Find all lines that contain table data (have multiple |)
+    # Handle both tab-separated and pipe-separated tables
     table_lines = []
-    for line in lines:
-        if line.count('|') >= 3:  # At least 3 pipes for a proper table row
-            table_lines.append(line)
+    is_tab_separated = False
     
-    print(f"DEBUG: Found {len(table_lines)} potential table lines")
+    for line in lines:
+        if line.count('|') >= 3:  # Pipe-separated table
+            table_lines.append(line)
+        elif line.count('\t') >= 2:  # Tab-separated table
+            table_lines.append(line)
+            is_tab_separated = True
+    
+    print(f"DEBUG: Found {len(table_lines)} potential table lines, tab-separated: {is_tab_separated}")
     
     if len(table_lines) < 2:
         print("DEBUG: Not enough table lines found")
@@ -404,7 +409,12 @@ def parse_markdown_table(markdown):
     # Parse headers from first line
     header_line = table_lines[0]
     headers = []
-    header_parts = header_line.split('|')
+    
+    if is_tab_separated:
+        header_parts = header_line.split('\t')
+    else:
+        header_parts = header_line.split('|')
+    
     for part in header_parts:
         cleaned = part.strip()
         if cleaned and cleaned not in ['', '-', ':']:
@@ -416,9 +426,9 @@ def parse_markdown_table(markdown):
         print("DEBUG: Not enough valid headers found")
         return []
     
-    # Skip separator line (usually contains dashes)
+    # Skip separator line if it exists (usually contains dashes)
     data_start_index = 1
-    if len(table_lines) > 1 and '-' in table_lines[1]:
+    if len(table_lines) > 1 and ('-' in table_lines[1] or table_lines[1].strip() == ''):
         data_start_index = 2
     
     # Parse data rows
@@ -426,7 +436,11 @@ def parse_markdown_table(markdown):
     for i in range(data_start_index, len(table_lines)):
         line = table_lines[i]
         cells = []
-        cell_parts = line.split('|')
+        
+        if is_tab_separated:
+            cell_parts = line.split('\t')
+        else:
+            cell_parts = line.split('|')
         
         for part in cell_parts:
             cleaned = part.strip()
@@ -448,32 +462,6 @@ def parse_markdown_table(markdown):
     print(f"DEBUG: Successfully parsed {len(rows)} complete rows")
     return rows
 
-def get_full_meeting_content(session_data, prompt_name):
-    """Extract complete meeting summary content, not just table"""
-    if prompt_name != 'meeting_summarizer':
-        return session_data
-    
-    # Get the full chat history to extract complete summary
-    history_key = f'chat_history_{prompt_name}'
-    chat_history = session.get(history_key, [])
-    
-    full_content = {
-        'meeting_overview': '',
-        'key_points': '',
-        'decisions': '',
-        'action_items': session_data,
-        'unresolved_issues': ''
-    }
-    
-    # Extract content from AI responses
-    for message in chat_history:
-        if message.get('role') == 'assistant':
-            content = message.get('content', '')
-            if 'Meeting Overview:' in content:
-                full_content['meeting_overview'] = content
-                break
-    
-    return full_content
 
 @app.route('/')
 def home():
