@@ -352,22 +352,25 @@ def validate_user_input(user_message):
     if not user_message or len(user_message.strip()) == 0:
         return False, "Empty message"
     
-    # Length validation
-    if len(user_message) > 5000:
-        return False, "Message too long. Please limit to 5000 characters."
+    # Length validation - increased for detailed business responses
+    if len(user_message) > 8000:  # INCREASED from 5000
+        return False, "Message too long. Please limit to 8000 characters."
     
-    # Block common prompt injection patterns
+    # REFINED: More specific prompt injection patterns
     injection_patterns = [
-        r'ignore.*previous.*instructions',
-        r'system.*override',
-        r'forget.*role',
-        r'act.*as.*admin',
-        r'show.*credentials',
-        r'display.*prompt',
-        r'repeat.*\d+.*times',
-        r'every.*word.*dictionary',
-        r'infinite|forever|endless'
+        r'ignore\s+all\s+previous\s+instructions',
+        r'system\s+override\s+mode',
+        r'forget\s+your\s+role\s+as',
+        r'act\s+as\s+admin\s+user',
+        r'show\s+me\s+your\s+credentials',
+        r'display\s+the\s+system\s+prompt',
+        r'repeat\s+this\s+\d+\s+times',  # More specific repetition pattern
+        r'print\s+every\s+word\s+in\s+dictionary'
     ]
+    
+    # REMOVED: The overly broad patterns that were causing false positives:
+    # r'infinite|forever|endless' - "forever" is common in business context
+    # r'repeat.*\d+.*times' - too broad, catches legitimate business language
     
     for pattern in injection_patterns:
         if re.search(pattern, user_message.lower()):
